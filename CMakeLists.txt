@@ -7,7 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_subdirectory(../Hydrolibs Hydrolib)
+add_subdirectory(libs/Hydrolibs Hydrolib)
 
 file(GLOB SOURCES src/*.cpp)
 add_executable(TTY_reader ${SOURCES})
