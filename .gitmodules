@@ -1,5 +1,4 @@
 [submodule "libs/Hydrolibs"]
 	path = libs/Hydrolibs
 	url = https://github.com/SeaJackal/Hydrolib-soft.git
-[submodule "Hydrolibs"]
 	branch = Migration-to-cpp
