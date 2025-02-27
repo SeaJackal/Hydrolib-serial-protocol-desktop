@@ -46,6 +46,8 @@ public:
     SerialPortStream &operator<<(uint8_t byte);
     SerialPortStream &operator>>(uint8_t &byte);
 
+    uint32_t read_all(uint8_t* buffer);
+
     bool isValid() const;
 };
 

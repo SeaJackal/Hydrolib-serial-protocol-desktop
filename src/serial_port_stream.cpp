@@ -90,6 +90,11 @@ SerialPortStream &SerialPortStream::operator>>(uint8_t &byte)
     return *this;
 }
 
+uint32_t SerialPortStream::read_all(uint8_t *buffer)
+{
+    return read(fd_, buffer, 255);
+}
+
 bool SerialPortStream::isValid() const
 {
     return fd_ != -1;
