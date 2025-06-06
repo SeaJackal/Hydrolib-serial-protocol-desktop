@@ -18,4 +18,4 @@ target_include_directories(TTY_reader PUBLIC include)
 
 target_compile_features(TTY_reader PUBLIC cxx_std_20)
 target_compile_options(TTY_reader PRIVATE -Wall -Wextra -Wpedantic -Wc++20-compat -Wno-format-security
-    -Woverloaded-virtual -Wsuggest-override)
+    -Woverloaded-virtual -Wsuggest-override -fconcepts-diagnostics-depth=10)
