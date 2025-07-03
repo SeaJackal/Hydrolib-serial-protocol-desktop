@@ -10,12 +10,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_subdirectory(libs/Hydrolibs Hydrolib)
 
 file(GLOB SOURCES src/*.cpp)
-add_executable(TTY_reader ${SOURCES})
+add_executable(hydrosp ${SOURCES})
 
-target_link_libraries(TTY_reader HydrolibSerialProtocol)
+target_link_libraries(hydrosp HydrolibSerialProtocol)
 
-target_include_directories(TTY_reader PUBLIC include)
+target_include_directories(hydrosp PUBLIC include)
 
-target_compile_features(TTY_reader PUBLIC cxx_std_20)
-target_compile_options(TTY_reader PRIVATE -Wall -Wextra -Wpedantic -Wc++20-compat -Wno-format-security
+target_compile_features(hydrosp PUBLIC cxx_std_20)
+target_compile_options(hydrosp PRIVATE -Wall -Wextra -Wpedantic -Wc++20-compat -Wno-format-security
     -Woverloaded-virtual -Wsuggest-override -fconcepts-diagnostics-depth=10)

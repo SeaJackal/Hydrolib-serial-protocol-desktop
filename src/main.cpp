@@ -85,10 +85,17 @@ int main(int argc, char *argv[])
 
     int opt;
 
-    opt = getopt(argc, argv, "-");
+    opt = getopt(argc, argv, "-h");
 
     if (opt != 1)
     {
+        if (opt == 'h')
+        {
+            cout << "hydrosp [-h] write/read" << endl;
+            cout << "\twrite - write to slave's memory" << endl;
+            cout << "\tread - read from slave's memory" << endl;
+            return 0;
+        }
         cout << "No command suggested" << endl;
         return -1;
     }
@@ -116,10 +123,16 @@ int ProcessRead(int argc, char *argv[])
     int reg = -1;
     char dev[50] = {0};
 
-    while ((opt = getopt(argc, argv, ":s:r:d:")) != -1)
+    while ((opt = getopt(argc, argv, ":s:r:d:h")) != -1)
     {
         switch (opt)
         {
+        case 'h':
+            cout << "hydrosp read [-h] -s <slave> -r <reg> -d <device>" << endl;
+            cout << "\tslave - slave address on bus" << endl;
+            cout << "\treg - address of register" << endl;
+            cout << "\tdevice - file device address" << endl;
+            return 0;
         case 'd':
             strcpy(dev, optarg);
             break;
@@ -203,10 +216,17 @@ int ProcessWrite(int argc, char *argv[])
     char dev[50] = {0};
     char value = 0;
 
-    while ((opt = getopt(argc, argv, "-:s:r:d:")) != -1)
+    while ((opt = getopt(argc, argv, "-:s:r:d:h")) != -1)
     {
         switch (opt)
         {
+        case 'h':
+            cout << "hydrosp read <-h> -s <slave> -r <reg> -d <device> <value>" << endl;
+            cout << "\tslave - slave address on bus" << endl;
+            cout << "\treg - address of register" << endl;
+            cout << "\tdevice - file device address" << endl;
+            cout << "\tvalue - value to write" << endl;
+            return 0;
         case 1:
             value = *optarg;
             break;
