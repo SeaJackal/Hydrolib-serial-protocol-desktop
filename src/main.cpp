@@ -1,4 +1,6 @@
 #include <chrono>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <thread>
 #include <unistd.h>
@@ -6,93 +8,65 @@
 #include "hydrolib_common.h"
 #include "serial_port_stream.hpp"
 
-// extern "C" {
-// #include "hydrolib_ring_queue.h"
-// }
 #include "hydrolib_log_distributor.hpp"
 #include "hydrolib_serial_protocol_master.hpp"
 
 #define RING_BUFFER_CAPACITY 2048
 #define PUBLIC_MEMORY_LENGTH 20
 
-// class Transeiver {
-// public:
-//   Transeiver(const std::string &file_path) : serial_stream_(file_path) {
-//     hydrolib_RingQueue_Init(&ring_queue_, ring_buffer_,
-//     RING_BUFFER_CAPACITY);
-//   }
-
-//   hydrolib_ReturnCode Push(const void *buffer, uint32_t length) {
-//     for (uint32_t i = 0; i < length; i++) {
-//       serial_stream_ << static_cast<const uint8_t *>(buffer)[i];
-//     }
-//     return HYDROLIB_RETURN_OK;
-//   }
-
-//   hydrolib_ReturnCode Read(void *data, unsigned data_length, unsigned shift)
-//   {
-//     return hydrolib_RingQueue_Read(&ring_queue_, data, data_length, shift);
-//   }
-
-//   void Drop(unsigned length) { hydrolib_RingQueue_Drop(&ring_queue_, length);
-//   }
-
-//   void Clear() { hydrolib_RingQueue_Clear(&ring_queue_); }
-
-//   void Process() {
-//     uint8_t rx_buffer[255];
-//     unsigned length = serial_stream_.ReadAll(rx_buffer);
-//     hydrolib_RingQueue_Push(&ring_queue_, rx_buffer, length);
-//   }
-
-// public:
-//   SerialPortStream serial_stream_;
-
-//   uint8_t ring_buffer_[RING_BUFFER_CAPACITY];
-//   hydrolib_RingQueue ring_queue_;
-// };
-
-class TestLogStream {
+class TestLogStream
+{
 public:
-  hydrolib_ReturnCode Push(const void *data, unsigned length) {
-    for (unsigned i = 0; i < length; i++) {
-      std::cout << (reinterpret_cast<const char *>(data))[i];
+    hydrolib_ReturnCode Push(const void *data, unsigned length)
+    {
+        for (unsigned i = 0; i < length; i++)
+        {
+            std::cout << (reinterpret_cast<const char *>(data))[i];
+        }
+        return HYDROLIB_RETURN_OK;
     }
-    return HYDROLIB_RETURN_OK;
-  }
-  hydrolib_ReturnCode Open() { return HYDROLIB_RETURN_OK; }
-  hydrolib_ReturnCode Close() { return HYDROLIB_RETURN_OK; }
+    hydrolib_ReturnCode Open() { return HYDROLIB_RETURN_OK; }
+    hydrolib_ReturnCode Close() { return HYDROLIB_RETURN_OK; }
 };
 
-class TestPublicMemory {
+class TestPublicMemory
+{
 public:
-  TestPublicMemory() {
-    for (int i = 0; i < PUBLIC_MEMORY_LENGTH; i++) {
-      memory[i] = i;
+    TestPublicMemory()
+    {
+        for (int i = 0; i < PUBLIC_MEMORY_LENGTH; i++)
+        {
+            memory[i] = i;
+        }
     }
-  }
 
 public:
-  const uint8_t *Read(unsigned address, unsigned length) {
-    if (address + length > PUBLIC_MEMORY_LENGTH) {
-      return nullptr;
+    hydrolib_ReturnCode Read(void *write_buffer, unsigned address,
+                             unsigned length)
+    {
+        return HYDROLIB_RETURN_OK;
     }
-    return memory + address;
-  }
 
 public:
-  hydrolib_ReturnCode Write(const void *write_buffer, unsigned address,
-                            unsigned length) {
-    if (address + length > PUBLIC_MEMORY_LENGTH) {
-      return HYDROLIB_RETURN_FAIL;
+    hydrolib_ReturnCode Write(const void *write_buffer, unsigned address,
+                              unsigned length)
+    {
+        if (address + length > PUBLIC_MEMORY_LENGTH)
+        {
+            return HYDROLIB_RETURN_FAIL;
+        }
+        memcpy(&memory[address], write_buffer, length);
+        return HYDROLIB_RETURN_OK;
     }
-    memcpy(&memory[address], write_buffer, length);
-    return HYDROLIB_RETURN_OK;
-  }
 
 public:
-  uint8_t memory[PUBLIC_MEMORY_LENGTH];
+    uint8_t memory[PUBLIC_MEMORY_LENGTH];
 };
+
+int ProcessRead(int argc, char *argv[]);
+int ProcessWrite(int argc, char *argv[]);
+
+bool StrToInt(const char *str, int &dest);
 
 inline TestLogStream log_stream;
 inline hydrolib::logger::LogDistributor distributor("[%s] [%l] %m\n",
@@ -101,35 +75,227 @@ inline hydrolib::logger::Logger logger("Serializer", 0, distributor);
 
 using namespace std;
 
-int main(int argc, char *argv[]) {
-  // if (argc < 2) {
-  //   cout << "Not enough arguments" << endl;
-  //   return -1;
-  // }
+int main(int argc, char *argv[])
+{
+    if (argc < 2)
+    {
+        cout << "Not enough arguments" << endl;
+        return -1;
+    }
 
-  char a;
-  char b;
+    int opt;
 
-  uint8_t buffer[255];
-  // Transeiver transeiver(argv[1]);
-  SerialPortStream transeiver("/dev/ttyUSB0");
-  TestPublicMemory public_memory;
-  int fd = transeiver.GetFileDescriptor();
-  hydrolib::serial_protocol::Master sp_handler(1, fd, public_memory, logger,
-                                               [&]() {});
+    opt = getopt(argc, argv, "-");
 
-  while (1) {
-    cin >> a;
-    cout << "Transmitting \"" << a << "\"" << endl;
-    sp_handler.TransmitWrite(2, 0, 1, reinterpret_cast<uint8_t *>(&a));
-    sp_handler.TransmitRead(2, 1, 1, reinterpret_cast<uint8_t *>(&b));
+    if (opt != 1)
+    {
+        cout << "No command suggested" << endl;
+        return -1;
+    }
+
+    if (!strcmp(optarg, "read"))
+    {
+        return ProcessRead(argc, argv);
+    }
+    else if (!strcmp(optarg, "write"))
+    {
+        return ProcessWrite(argc, argv);
+    }
+    else
+    {
+        cout << "Urecognized command: " << optarg << endl;
+        return -1;
+    }
+}
+
+int ProcessRead(int argc, char *argv[])
+{
+    int opt;
+
+    int slave = -1;
+    int reg = -1;
+    char dev[50] = {0};
+
+    while ((opt = getopt(argc, argv, ":s:r:d:")) != -1)
+    {
+        switch (opt)
+        {
+        case 'd':
+            strcpy(dev, optarg);
+            break;
+        case 's':
+            if (!StrToInt(optarg, slave))
+            {
+                slave = -1;
+            }
+            break;
+        case 'r':
+            if (!StrToInt(optarg, reg))
+            {
+                reg = -1;
+            }
+            break;
+        case ':':
+            cout << "No value for the option: " << optopt << endl;
+            return -1;
+        case '?':
+            cout << "Wrong option: " << optopt << endl;
+            return -1;
+        default:
+            cout << "Unknown error" << endl;
+            return -1;
+        }
+    }
+
+    if (slave == -1)
+    {
+        cout << "No slave specified" << endl;
+        return -1;
+    }
+
+    if (reg == -1)
+    {
+        cout << "No reg specified" << endl;
+        return -1;
+    }
+
+    if (!dev[0])
+    {
+        cout << "No device specified" << endl;
+        return -1;
+    }
+
+    uint8_t buffer;
+    SerialPortStream transeiver(dev);
+    TestPublicMemory public_memory;
+    int fd = transeiver.GetFileDescriptor();
+    if (fd < 0)
+    {
+        cout << "Can't open device" << endl;
+        return -1;
+    }
+    hydrolib::serial_protocol::Master sp_handler(1, fd, public_memory, logger,
+                                                 [&]() {});
+
+    sp_handler.TransmitRead(slave, reg, sizeof(char),
+                            reinterpret_cast<uint8_t *>(&buffer));
 
     this_thread::sleep_for(chrono::milliseconds(500));
 
-    if (sp_handler.ProcessRx() != HYDROLIB_RETURN_OK) {
-      cout << "Got nothing" << endl;
-    } else {
-      cout << "Got from memory \"" << b << "\"" << endl;
+    if (sp_handler.ProcessRx() != HYDROLIB_RETURN_OK)
+    {
+        cout << "Got nothing" << endl;
+        return -1;
     }
-  }
+    else
+    {
+        cout << "Got value: " << buffer << endl;
+        return 0;
+    }
+}
+
+int ProcessWrite(int argc, char *argv[])
+{
+    int opt;
+
+    int slave = -1;
+    int reg = -1;
+    char dev[50] = {0};
+    char value = 0;
+
+    while ((opt = getopt(argc, argv, "-:s:r:d:")) != -1)
+    {
+        switch (opt)
+        {
+        case 1:
+            value = *optarg;
+            break;
+        case 'd':
+            strcpy(dev, optarg);
+            break;
+        case 's':
+            if (!StrToInt(optarg, slave))
+            {
+                slave = -1;
+            }
+            break;
+        case 'r':
+            if (!StrToInt(optarg, reg))
+            {
+                reg = -1;
+            }
+            break;
+        case ':':
+            cout << "No value for the option: " << optopt << endl;
+            return -1;
+        case '?':
+            cout << "Wrong option: " << optopt << endl;
+            return -1;
+        default:
+            cout << "Unknown error" << endl;
+            return -1;
+        }
+    }
+
+    if (slave == -1)
+    {
+        cout << "No slave specified" << endl;
+        return -1;
+    }
+
+    if (reg == -1)
+    {
+        cout << "No reg specified" << endl;
+        return -1;
+    }
+
+    if (!dev[0])
+    {
+        cout << "No device specified" << endl;
+        return -1;
+    }
+
+    if (!value)
+    {
+        cout << "No value specified" << endl;
+        return -1;
+    }
+
+    SerialPortStream transeiver(dev);
+    TestPublicMemory public_memory;
+    int fd = transeiver.GetFileDescriptor();
+    if (fd < 0)
+    {
+        cout << "Can't open device" << endl;
+        return -1;
+    }
+    hydrolib::serial_protocol::Master sp_handler(1, fd, public_memory, logger,
+                                                 [&]() {});
+
+    sp_handler.TransmitWrite(slave, reg, sizeof(char),
+                             reinterpret_cast<uint8_t *>(&value));
+    return 0;
+}
+
+bool StrToInt(const char *str, int &dest)
+{
+    int i = 0;
+    while (str[i])
+    {
+        if (str[i] != '0')
+        {
+            dest = atoi(str);
+            if (!dest)
+            {
+                return false;
+            }
+            return true;
+        }
+        else
+        {
+            i++;
+        }
+    }
+    dest = 0;
+    return true;
 }
