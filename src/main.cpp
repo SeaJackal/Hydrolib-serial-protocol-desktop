@@ -225,7 +225,7 @@ int ProcessWrite(int argc, char *argv[])
             cout << "\tslave - slave address on bus" << endl;
             cout << "\treg - address of register" << endl;
             cout << "\tdevice - file device address" << endl;
-            cout << "\tvalue - value to write" << endl;
+            cout << "\tvalue - value to write (ASCII byte)" << endl;
             return 0;
         case 1:
             value = *optarg;
