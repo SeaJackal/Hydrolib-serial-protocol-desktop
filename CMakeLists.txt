@@ -12,7 +12,7 @@ add_subdirectory(libs/Hydrolibs Hydrolib)
 file(GLOB SOURCES src/*.cpp)
 add_executable(hydrosp ${SOURCES})
 
-target_link_libraries(hydrosp HydrolibSerialProtocol)
+target_link_libraries(hydrosp HydrolibBusDatalink HydrolibBusApplication)
 
 target_include_directories(hydrosp PUBLIC include)
 

@@ -9,59 +9,25 @@
 #include "serial_port_stream.hpp"
 
 #include "hydrolib_log_distributor.hpp"
-#include "hydrolib_serial_protocol_master.hpp"
+#include "hydrolib_bus_datalink_stream.hpp"
+#include "hydrolib_bus_application_master.hpp"
 
 #define RING_BUFFER_CAPACITY 2048
 #define PUBLIC_MEMORY_LENGTH 20
 
 class TestLogStream
 {
-public:
-    hydrolib_ReturnCode Push(const void *data, unsigned length)
-    {
-        for (unsigned i = 0; i < length; i++)
-        {
-            std::cout << (reinterpret_cast<const char *>(data))[i];
-        }
-        return HYDROLIB_RETURN_OK;
-    }
-    hydrolib_ReturnCode Open() { return HYDROLIB_RETURN_OK; }
-    hydrolib_ReturnCode Close() { return HYDROLIB_RETURN_OK; }
 };
 
-class TestPublicMemory
+int write([[maybe_unused]] TestLogStream &stream, const void *dest,
+    unsigned length)
 {
-public:
-    TestPublicMemory()
-    {
-        for (int i = 0; i < PUBLIC_MEMORY_LENGTH; i++)
-        {
-            memory[i] = i;
-        }
-    }
-
-public:
-    hydrolib_ReturnCode Read(void *write_buffer, unsigned address,
-                             unsigned length)
-    {
-        return HYDROLIB_RETURN_OK;
-    }
-
-public:
-    hydrolib_ReturnCode Write(const void *write_buffer, unsigned address,
-                              unsigned length)
-    {
-        if (address + length > PUBLIC_MEMORY_LENGTH)
-        {
-            return HYDROLIB_RETURN_FAIL;
-        }
-        memcpy(&memory[address], write_buffer, length);
-        return HYDROLIB_RETURN_OK;
-    }
-
-public:
-    uint8_t memory[PUBLIC_MEMORY_LENGTH];
-};
+for (unsigned i = 0; i < length; i++)
+{
+  std::cout << (reinterpret_cast<const char *>(dest))[i];
+}
+return length;
+}
 
 int ProcessRead(int argc, char *argv[]);
 int ProcessWrite(int argc, char *argv[]);
@@ -180,22 +146,21 @@ int ProcessRead(int argc, char *argv[])
 
     uint8_t buffer;
     SerialPortStream transeiver(dev);
-    TestPublicMemory public_memory;
     int fd = transeiver.GetFileDescriptor();
     if (fd < 0)
     {
         cout << "Can't open device" << endl;
         return -1;
     }
-    hydrolib::serial_protocol::Master sp_handler(1, fd, public_memory, logger,
-                                                 [&]() {});
+    hydrolib::bus::datalink::StreamManager stream_manager(2, fd, logger);
+    hydrolib::bus::datalink::Stream stream(stream_manager, slave);
+    hydrolib::bus::application::Master master(stream, logger);
 
-    sp_handler.TransmitRead(slave, reg, sizeof(char),
-                            reinterpret_cast<uint8_t *>(&buffer));
+    master.Read(&buffer, reg, sizeof(char));
 
     this_thread::sleep_for(chrono::milliseconds(500));
 
-    if (sp_handler.ProcessRx() != HYDROLIB_RETURN_OK)
+    if (!master.Process())
     {
         cout << "Got nothing" << endl;
         return -1;
@@ -282,18 +247,18 @@ int ProcessWrite(int argc, char *argv[])
     }
 
     SerialPortStream transeiver(dev);
-    TestPublicMemory public_memory;
     int fd = transeiver.GetFileDescriptor();
     if (fd < 0)
     {
         cout << "Can't open device" << endl;
         return -1;
     }
-    hydrolib::serial_protocol::Master sp_handler(1, fd, public_memory, logger,
-                                                 [&]() {});
+    hydrolib::bus::datalink::StreamManager stream_manager(2, fd, logger);
+    hydrolib::bus::datalink::Stream stream(stream_manager, slave);
+    hydrolib::bus::application::Master master(stream, logger);
 
-    sp_handler.TransmitWrite(slave, reg, sizeof(char),
-                             reinterpret_cast<uint8_t *>(&value));
+    master.Write(&value, reg, sizeof(char));
+
     return 0;
 }
 
