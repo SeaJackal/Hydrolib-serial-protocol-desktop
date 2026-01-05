@@ -5,12 +5,12 @@
 #include <thread>
 #include <unistd.h>
 
-#include "hydrolib_common.h"
+#include "hydrolib_return_codes.hpp"
 #include "serial_port_stream.hpp"
 
-#include "hydrolib_log_distributor.hpp"
-#include "hydrolib_bus_datalink_stream.hpp"
 #include "hydrolib_bus_application_master.hpp"
+#include "hydrolib_bus_datalink_stream.hpp"
+#include "hydrolib_log_distributor.hpp"
 
 #define RING_BUFFER_CAPACITY 2048
 #define PUBLIC_MEMORY_LENGTH 20
@@ -20,13 +20,13 @@ class TestLogStream
 };
 
 int write([[maybe_unused]] TestLogStream &stream, const void *dest,
-    unsigned length)
+          unsigned length)
 {
-for (unsigned i = 0; i < length; i++)
-{
-  std::cout << (reinterpret_cast<const char *>(dest))[i];
-}
-return length;
+    for (unsigned i = 0; i < length; i++)
+    {
+        std::cout << (reinterpret_cast<const char *>(dest))[i];
+    }
+    return length;
 }
 
 int ProcessRead(int argc, char *argv[]);
@@ -158,18 +158,26 @@ int ProcessRead(int argc, char *argv[])
 
     master.Read(&buffer, reg, sizeof(char));
 
-    this_thread::sleep_for(chrono::milliseconds(500));
-
-    if (!master.Process())
+    hydrolib::ReturnCode return_code = hydrolib::ReturnCode::NO_DATA;
+    int timeout_count = 0;
+    while (return_code != hydrolib::ReturnCode::OK)
     {
-        cout << "Got nothing" << endl;
-        return -1;
+        this_thread::sleep_for(chrono::milliseconds(100));
+        stream_manager.Process();
+        return_code = master.Process();
+        if (return_code == hydrolib::ReturnCode::TIMEOUT)
+        {
+            timeout_count++;
+            cout << "Timeout, retrying: " << timeout_count << endl;
+            if (timeout_count > 10)
+            {
+                cout << "Timeout, max retries reached" << endl;
+                return -1;
+            }
+        }
     }
-    else
-    {
-        cout << "Got value: " << buffer << endl;
-        return 0;
-    }
+    cout << "Got value: " << buffer << endl;
+    return 0;
 }
 
 int ProcessWrite(int argc, char *argv[])
@@ -186,7 +194,8 @@ int ProcessWrite(int argc, char *argv[])
         switch (opt)
         {
         case 'h':
-            cout << "hydrosp read <-h> -s <slave> -r <reg> -d <device> <value>" << endl;
+            cout << "hydrosp read <-h> -s <slave> -r <reg> -d <device> <value>"
+                 << endl;
             cout << "\tslave - slave address on bus" << endl;
             cout << "\treg - address of register" << endl;
             cout << "\tdevice - file device address" << endl;
