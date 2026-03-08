@@ -88,7 +88,7 @@ int ProcessRead(int argc, char *argv[])
     int slave = -1;
     int reg = -1;
     int length = 4;
-    as_int = false;
+    bool as_int = false;
     char dev[50] = {0};
 
     while ((opt = getopt(argc, argv, ":s:r:d:l:ih")) != -1)
