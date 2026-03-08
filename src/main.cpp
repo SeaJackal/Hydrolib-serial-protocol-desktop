@@ -87,16 +87,18 @@ int ProcessRead(int argc, char *argv[])
 
     int slave = -1;
     int reg = -1;
+    int length = 4;
     char dev[50] = {0};
 
-    while ((opt = getopt(argc, argv, ":s:r:d:h")) != -1)
+    while ((opt = getopt(argc, argv, ":s:r:d:l:h")) != -1)
     {
         switch (opt)
         {
         case 'h':
-            cout << "hydrosp read [-h] -s <slave> -r <reg> -d <device>" << endl;
+            cout << "hydrosp read [-h] -s <slave> -r <reg> [-l <length>] -d <device>" << endl;
             cout << "\tslave - slave address on bus" << endl;
             cout << "\treg - address of register" << endl;
+            cout << "\tlength - number of bytes (max = 4) to read" << endl;
             cout << "\tdevice - file device address" << endl;
             return 0;
         case 'd':
@@ -112,6 +114,12 @@ int ProcessRead(int argc, char *argv[])
             if (!StrToInt(optarg, reg))
             {
                 reg = -1;
+            }
+            break;
+        case 'l':
+            if (!StrToInt(optarg, length))
+            {
+                length = -1;
             }
             break;
         case ':':
@@ -144,6 +152,12 @@ int ProcessRead(int argc, char *argv[])
         return -1;
     }
 
+    if (length == -1)
+    {
+        cout << "No length specified" << endl;
+        return -1;
+    }
+
     uint32_t buffer;
     SerialPortStream transeiver(dev);
     int fd = transeiver.GetFileDescriptor();
@@ -156,7 +170,7 @@ int ProcessRead(int argc, char *argv[])
     hydrolib::bus::datalink::Stream stream(stream_manager, slave);
     hydrolib::bus::application::Master master(stream, logger);
 
-    master.Read(&buffer, reg, sizeof(buffer));
+    master.Read(&buffer, reg, length);
 
     hydrolib::ReturnCode return_code = hydrolib::ReturnCode::NO_DATA;
     int timeout_count = 0;
@@ -190,16 +204,16 @@ int ProcessWrite(int argc, char *argv[])
     char *value_str = nullptr;
     bool as_int = false;
 
-    while ((opt = getopt(argc, argv, "-:s:r:d:th")) != -1)
+    while ((opt = getopt(argc, argv, "-:s:r:d:ih")) != -1)
     {
         switch (opt)
         {
         case 'h':
-            cout << "hydrosp write <-h> -s <slave> -r <reg> [-t] -d <device> <value>"
+            cout << "hydrosp write <-h> -s <slave> -r <reg> [-i] -d <device> <value>"
                  << endl;
             cout << "\tslave - slave address on bus" << endl;
             cout << "\treg - address of register" << endl;
-            cout << "\tt - value as integer (4 bytes)" << endl;
+            cout << "\ti - value as integer (4 bytes)" << endl;
             cout << "\tdevice - file device address" << endl;
             cout << "\tvalue - value to write (ASCII byte)" << endl;
             return 0;
@@ -221,7 +235,7 @@ int ProcessWrite(int argc, char *argv[])
                 reg = -1;
             }
             break;
-        case 't':
+        case 'i':
             as_int = true;
             break;
         case ':':
@@ -274,7 +288,7 @@ int ProcessWrite(int argc, char *argv[])
     if (as_int)
     {
         int32_t int_value = atoi(value_str);
-        master.Write(&int_value, reg, sizeof(int_value));
+        master.Write(&int_value, reg, sizeof(int32_t));
     }
     else
     {
