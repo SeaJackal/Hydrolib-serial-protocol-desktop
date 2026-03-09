@@ -87,16 +87,20 @@ int ProcessRead(int argc, char *argv[])
 
     int slave = -1;
     int reg = -1;
+    int length = 4;
+    bool as_int = false;
     char dev[50] = {0};
 
-    while ((opt = getopt(argc, argv, ":s:r:d:h")) != -1)
+    while ((opt = getopt(argc, argv, ":s:r:d:l:ih")) != -1)
     {
         switch (opt)
         {
         case 'h':
-            cout << "hydrosp read [-h] -s <slave> -r <reg> -d <device>" << endl;
+            cout << "hydrosp read [-h] -s <slave> -r <reg> [-i] [-l <length>] -d <device>" << endl;
             cout << "\tslave - slave address on bus" << endl;
             cout << "\treg - address of register" << endl;
+            cout << "\ti - value as integer (4 bytes)" << endl;
+            cout << "\tlength - number of bytes (max = 4) to read" << endl;
             cout << "\tdevice - file device address" << endl;
             return 0;
         case 'd':
@@ -113,6 +117,15 @@ int ProcessRead(int argc, char *argv[])
             {
                 reg = -1;
             }
+            break;
+        case 'l':
+            if (!StrToInt(optarg, length))
+            {
+                length = -1;
+            }
+            break;
+        case 'i':
+            as_int = true;
             break;
         case ':':
             cout << "No value for the option: " << optopt << endl;
@@ -144,7 +157,13 @@ int ProcessRead(int argc, char *argv[])
         return -1;
     }
 
-    uint8_t buffer;
+    if (length == -1)
+    {
+        cout << "No length specified" << endl;
+        return -1;
+    }
+
+    char buffer[256];
     SerialPortStream transeiver(dev);
     int fd = transeiver.GetFileDescriptor();
     if (fd < 0)
@@ -156,7 +175,7 @@ int ProcessRead(int argc, char *argv[])
     hydrolib::bus::datalink::Stream stream(stream_manager, slave);
     hydrolib::bus::application::Master master(stream, logger);
 
-    master.Read(&buffer, reg, sizeof(char));
+    master.Read(buffer, reg, length);
 
     hydrolib::ReturnCode return_code = hydrolib::ReturnCode::NO_DATA;
     int timeout_count = 0;
@@ -176,7 +195,15 @@ int ProcessRead(int argc, char *argv[])
             }
         }
     }
-    cout << "Got value: " << buffer << endl;
+
+    if (as_int){
+        int32_t int_buffer;
+        memcpy(&int_buffer, buffer, sizeof(int32_t));
+        cout << "Got value: " << int_buffer << endl;
+    }
+    else {
+        cout << "Got value: " << buffer << endl;
+    }
     return 0;
 }
 
@@ -187,22 +214,24 @@ int ProcessWrite(int argc, char *argv[])
     int slave = -1;
     int reg = -1;
     char dev[50] = {0};
-    char value = 0;
+    char *value_str = nullptr;
+    bool as_int = false;
 
-    while ((opt = getopt(argc, argv, "-:s:r:d:h")) != -1)
+    while ((opt = getopt(argc, argv, "-:s:r:d:ih")) != -1)
     {
         switch (opt)
         {
         case 'h':
-            cout << "hydrosp read <-h> -s <slave> -r <reg> -d <device> <value>"
+            cout << "hydrosp write <-h> -s <slave> -r <reg> [-i] -d <device> <value>"
                  << endl;
             cout << "\tslave - slave address on bus" << endl;
             cout << "\treg - address of register" << endl;
+            cout << "\ti - value as integer (4 bytes)" << endl;
             cout << "\tdevice - file device address" << endl;
             cout << "\tvalue - value to write (ASCII byte)" << endl;
             return 0;
         case 1:
-            value = *optarg;
+            value_str = optarg;
             break;
         case 'd':
             strcpy(dev, optarg);
@@ -218,6 +247,9 @@ int ProcessWrite(int argc, char *argv[])
             {
                 reg = -1;
             }
+            break;
+        case 'i':
+            as_int = true;
             break;
         case ':':
             cout << "No value for the option: " << optopt << endl;
@@ -249,7 +281,7 @@ int ProcessWrite(int argc, char *argv[])
         return -1;
     }
 
-    if (!value)
+    if (!value_str)
     {
         cout << "No value specified" << endl;
         return -1;
@@ -266,7 +298,16 @@ int ProcessWrite(int argc, char *argv[])
     hydrolib::bus::datalink::Stream stream(stream_manager, slave);
     hydrolib::bus::application::Master master(stream, logger);
 
-    master.Write(&value, reg, sizeof(char));
+    if (as_int)
+    {
+        int32_t int_value = atoi(value_str);
+        master.Write(&int_value, reg, sizeof(int32_t));
+    }
+    else
+    {
+        char char_value = value_str[0];
+        master.Write(&char_value, reg, sizeof(char));
+    }
 
     return 0;
 }
